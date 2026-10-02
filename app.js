@@ -3355,22 +3355,16 @@ async function calcularFrete() {
   }
 
   // ────────────────────────────────────────────────────────────────
-  //  WATCHDOG: se nenhum callback disparar em 15s, destrava o botão
-  //  O timeout nativo do browser NÃO é confiável — este é o backup.
+  //  WATCHDOG: se nenhum callback disparar em 15s, destrava o botão.
+  //  O timeout nativo do browser NÃO é confiável em iOS Safari com
+  //  permissão pendente — este é o backup que garante destravamento.
   // ────────────────────────────────────────────────────────────────
   let _gpsFinalizado = false;
-  const _watchdog = setTimeout(() => {
-    if (_gpsFinalizado) return;
-    _gpsFinalizado = true;
-    console.warn(
-      "[calcularFrete] Watchdog disparou — geolocation não respondeu em 15s",
-    );
 
-    msg.innerHTML =
-      '<span style="color:#e74c3c">⚠️ GPS não respondeu. Verifique se a localização está ativa no navegador.</span>';
+  const _mostrarFallbackManual = (titulo, texto) => {
     boxErro.innerHTML = `
-      <p><strong><i class="fas fa-info-circle"></i> GPS não respondeu?</strong></p>
-      <p style="margin-top:6px">Isso pode acontecer se você negou a permissão ou se a localização está desativada no dispositivo.</p>
+      <p><strong><i class="fas fa-info-circle"></i> ${titulo}</strong></p>
+      <p style="margin-top:6px">${texto}</p>
       <label style="display:flex;align-items:center;gap:10px;margin-top:8px;cursor:pointer;">
         <input type="checkbox" id="check-sem-gps" style="width:20px;height:20px;" onchange="aplicarFreteFixo()">
         <span>Aplicar taxa padrão de entrega</span>
@@ -3378,6 +3372,20 @@ async function calcularFrete() {
     boxErro.style.display = "block";
     btn.innerText = "📍 Tentar Novamente";
     btn.disabled = false;
+  };
+
+  const _watchdog = setTimeout(() => {
+    if (_gpsFinalizado) return;
+    _gpsFinalizado = true;
+    console.warn(
+      "[calcularFrete] Watchdog disparou — geolocation não respondeu em 15s",
+    );
+    msg.innerHTML =
+      '<span style="color:#e74c3c">⚠️ GPS não respondeu. Verifique se a localização está ativa no navegador.</span>';
+    _mostrarFallbackManual(
+      "GPS não respondeu?",
+      "Isso pode acontecer se você negou a permissão ou se a localização está desativada no dispositivo.",
+    );
   }, 15000);
 
   // ────────────────────────────────────────────────────────────────
@@ -3460,16 +3468,10 @@ async function calcularFrete() {
       else if (err.code === 3) errMsg = "⚠️ Tempo esgotado ao obter localização.";
 
       msg.innerHTML = `<span style="color:#e74c3c">${errMsg}</span>`;
-      boxErro.innerHTML = `
-        <p><strong><i class="fas fa-info-circle"></i> GPS não funcionou?</strong></p>
-        <p style="margin-top:6px">Você pode aplicar a <strong>taxa padrão de entrega</strong> (equivalente a 2–3 km) e prosseguir.</p>
-        <label style="display:flex;align-items:center;gap:10px;margin-top:8px;cursor:pointer;">
-          <input type="checkbox" id="check-sem-gps" style="width:20px;height:20px;" onchange="aplicarFreteFixo()">
-          <span>Aplicar taxa padrão de entrega</span>
-        </label>`;
-      boxErro.style.display = "block";
-      btn.innerText = "📍 Tentar Novamente";
-      btn.disabled = false;
+      _mostrarFallbackManual(
+        "GPS não funcionou?",
+        "Você pode aplicar a <strong>taxa padrão de entrega</strong> (equivalente a 2–3 km) e prosseguir.",
+      );
     },
 
     // ── Opções ────────────────────────────────────────────────────

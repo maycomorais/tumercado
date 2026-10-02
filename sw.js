@@ -4,7 +4,7 @@
 //    1. Incremente CACHE_NAME (ex: v7, v8…)
 //    2. O SW antigo detecta a diferença no activate e apaga os caches velhos.
 // ─────────────────────────────────────────────────────────────
-const CACHE_NAME = "tumercado-v1.0"; // ← bump aqui a cada deploy
+const CACHE_NAME = "tumercado-v1.1"; // ← bump aqui a cada deploy
 
 const BLOCKED_ORIGINS = [
   "instagram.",
@@ -24,6 +24,8 @@ const ASSETS_TO_CACHE = [
   "/app.js",
   "/style.css",
   "/supabaseClient.js",
+  "/freteUtils.js",      // ← NOVO
+  "/varejoUtils.js",     // ← NOVO
   "/turnos.html",
   "/ficha-tecnica.js",
   "/estatisticas.js",
@@ -46,6 +48,8 @@ const NETWORK_FIRST = [
   "/filiais.js",
   "/mensalistas.js",
   "/supabaseClient.js",
+  "/freteUtils.js",      // ← NOVO
+  "/varejoUtils.js",     // ← NOVO
   "/style.css",
 ];
 

@@ -15525,18 +15525,53 @@ function pdvToggleDelivery(el) {
 
 
 async function calcularFretePDV() {
-  const btn = document.getElementById("btn-gps-pdv");
-  const msg = document.getElementById("frete-msg-pdv");
+  const btn        = document.getElementById("btn-gps-pdv");
+  const msg        = document.getElementById("frete-msg-pdv");
   const freteInput = document.getElementById("balcao-frete");
 
-  btn.disabled = true;
-  btn.innerText = "⏳";
+  // Guard: se o HTML estiver desatualizado (sem id no botão), ainda
+  // assim a função roda — apenas não muda o estado visual do botão.
+  // Sem isso, a função quebrava na linha 2 com "Cannot set properties
+  // of null" e o operador via como botão travado.
+  const _resetBtn = () => {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.innerText = "📍 Rota";
+  };
+  const _setLoading = (txt) => {
+    if (!btn) return;
+    btn.disabled = true;
+    btn.innerText = txt;
+  };
+
+  if (!msg || !freteInput) {
+    console.warn("[calcularFretePDV] Elementos #frete-msg-pdv ou #balcao-frete não encontrados.");
+    return;
+  }
+
+  _setLoading("⏳");
   msg.innerHTML = '<span style="color:#888">Localizando...</span>';
 
-  // ── Tenta extrair coordenadas do link colado no campo endereço ────────
-  const endVal = (
-    document.getElementById("balcao-endereco")?.value || ""
-  ).trim();
+  // ── Watchdog: destrava o botão em 15s mesmo se nada acontecer ────────
+  // (geolocation.getCurrentPosition pode não disparar nenhum callback em
+  //  iOS com permissão pendente, deixando o botão travado pra sempre)
+  let _finalizado = false;
+  const _watchdog = setTimeout(() => {
+    if (_finalizado) return;
+    _finalizado = true;
+    msg.innerHTML =
+      '<span style="color:#e74c3c">⚠️ GPS não respondeu. Cole um link do Google Maps no endereço.</span>';
+    _resetBtn();
+  }, 15000);
+
+  const _finalizar = () => {
+    _finalizado = true;
+    clearTimeout(_watchdog);
+    _resetBtn();
+  };
+
+  // ── Tenta extrair coordenadas do link colado no campo endereço ──────
+  const endVal = (document.getElementById("balcao-endereco")?.value || "").trim();
   let lat = null,
     lng = null;
 
@@ -15563,13 +15598,12 @@ async function calcularFretePDV() {
     }
   }
 
-  // ── Se não extraiu do link, usa GPS do dispositivo ────────────────────
+  // ── Se não extraiu do link, usa GPS do dispositivo ──────────────────
   if (lat === null || lng === null) {
     if (!navigator.geolocation) {
       msg.innerHTML =
         '<span style="color:#e74c3c">Cole um link do Google Maps ou use um celular com GPS</span>';
-      btn.disabled = false;
-      btn.innerText = "📍 Rota";
+      _finalizar();
       return;
     }
     let position;
@@ -15583,22 +15617,23 @@ async function calcularFretePDV() {
     } catch {
       msg.innerHTML =
         '<span style="color:#e74c3c">Cole um link do Google Maps no campo endereço, ou permita o GPS</span>';
-      btn.disabled = false;
-      btn.innerText = "📍 Rota";
+      _finalizar();
       return;
     }
     lat = position.coords.latitude;
     lng = position.coords.longitude;
   }
 
-  // ── Salva coords no campo oculto para usar no insert ─────────────────
-  document.getElementById("balcao-geo-lat").value = lat;
-  document.getElementById("balcao-geo-lng").value = lng;
+  // ── Salva coords no campo oculto para usar no insert ────────────────
+  const _geoLatEl = document.getElementById("balcao-geo-lat");
+  const _geoLngEl = document.getElementById("balcao-geo-lng");
+  if (_geoLatEl) _geoLatEl.value = lat;
+  if (_geoLngEl) _geoLngEl.value = lng;
 
   msg.innerHTML = '<span style="color:#888">⏳ Calculando rota...</span>';
   let dist = await obterDistanciaPelaRota(lat, lng);
-  let usouRota = true;
-    // ── OSRM falhou → taxa padrão (2,1–3 km) ─────────────────────────
+
+  // ── OSRM falhou → taxa padrão (2,1–3 km) ────────────────────────────
   if (dist === null) {
     const r = calcularFreteSemLocalizacao(TABELA_FRETE_ADMIN);
 
@@ -15609,8 +15644,7 @@ async function calcularFretePDV() {
       freteInput.value = r.loja;
       msg.innerHTML = `<span style="color:#e67e22">⚠️ Rota indisponível. Taxa padrão: Gs ${r.loja.toLocaleString("es-PY")}</span>`;
     }
-    btn.disabled = false;
-    btn.innerHTML = "📍 Calcular";
+    _finalizar();
     atualizarCarrinhoPDV();
     return;
   }
@@ -15626,8 +15660,7 @@ async function calcularFretePDV() {
     msg.innerHTML = `<span style="color:#27ae60">✅ Rota: ${dist.toFixed(1)}km → Gs ${r.loja.toLocaleString("es-PY")}</span>`;
   }
 
-  btn.disabled = false;
-  btn.innerHTML = "📍 Calcular";
+  _finalizar();
   atualizarCarrinhoPDV();
 }
 
